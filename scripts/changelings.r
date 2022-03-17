@@ -88,5 +88,5 @@ print("test")
 ### run the Rmd file, saving both sankey plot and the html report in the output directory
 ### Please note the report is meant for all lineages and not a subset of lineages. When running a lineage subset, the html report file name has the lineages added to it.
 ########
-render(here("scripts","COVID19_assignmentThroughTime_report.Rmd"),output_file=paste0("changeLins_report_",typeselect,linFocusName,".html"), output_dir = outputDir, params = list(output_dir = outputDir))
+render(here("scripts","COVID19_assignmentThroughTime_report.Rmd"),output_file=paste0("changeLings_report_",typeselect,linFocusName,".html"), output_dir = outputDir, params = list(output_dir = outputDir))
 

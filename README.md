@@ -59,7 +59,7 @@ Rscript scripts/changelings.r 5
   
   * Sankey plot in HTML (Illustrated in Figure A)
   
-  * changeLins_report_lastn.html: Other analytical plots for proportion of changes and flagging lineages with changes. 
+  * changeLings_report_lastn.html: Other analytical plots for proportion of changes and flagging lineages with changes. 
     + Scatter plot of assignment changes in counts versus percentage (Figure B). A binomial test was conducted per lineage to test for significant changes in assignment with the observed ratio set as 10%, followed by multiple hypothesis testing correction. The coloring reflects the significance. See the report for more information.
     + Bar plot and Pie chart showing at most top 50 pairs of lineage changes between two time points along with the change type (Figure C)
  
