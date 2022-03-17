@@ -1,4 +1,4 @@
-#changelings: CHANGE of LINeaGeS
+# changelings: changing of LINeaGes through time
 ## Reporting Pangolin COVID19 Lineage assignment changes through time 
 The Pangoline lineage assignment of a sequence can sometimes change through time due to creation of new lineages, changes in the PangoLEARN model, etc.
 The markdown file provided can be called to generate the Sankey visualization of changes in Pangolin lineage assignment through time using Google Visualization, and report top changes in counts and proportions of lineages in an html file. Note that this is for examining changes in lineage assignment specifically, and not reflecting the total count of samples available.
@@ -6,22 +6,34 @@ The markdown file provided can be called to generate the Sankey visualization of
 <img src="scripts/output.png" alt="Output" width="1200"/>
 
 ### Usage in Windows:
+  * Downloading the github project
   * Installation of packages in RStudio: install.packages(c("googleVis", "ggrepel","ggplot2","dplyr","grid","rmarkdown","here"), repos="http://cran.us.r-project.org")
   * See the changeLings_windows.r file as an example to call the markdown file to generate both the Sankey plot and document report 
   * Lineages of interest can be specified with the linFocus parameter to generate subsetted Sankey plots and changelings report.
 
 ### Usage in Linux: 
 #### Environment setup on linux
+```
 conda create -y -n changelings -c conda-forge r-base pandoc r-stringi
 conda activate changelings
 R --vanilla
+```
+Install required packages in R
+```
 install.packages(c("googleVis", "ggrepel","ggplot2","dplyr","grid","rmarkdown","here"), repos="http://cran.us.r-project.org")
+```
 
 #### Run changelings
-cd /yourDirectory/changelings/
-git clone ...
+Within your directory of choice, get the changelings of the last two runs
+```
+git clone https://github.com/phac-nml/changelings.git
 conda activate changelings
+Rscript scripts/changelings.r
+```
+OR run it for the last five runs
+```
 Rscript scripts/changelings.r 5
+```
  
 ### Input: 
   See the data folder for examples of input format.
@@ -47,9 +59,10 @@ Rscript scripts/changelings.r 5
   
   * Sankey plot in HTML (Illustrated in Figure A)
   
-  * Other analytical plots for proportion of changes and flagging lineages can be seen in the COVID19_assignmentThroughTime_report.html 
+  * changeLins_report_lastn.html: Other analytical plots for proportion of changes and flagging lineages with changes. 
     + Scatter plot of assignment changes in counts versus percentage (Figure B). A binomial test was conducted per lineage to test for significant changes in assignment with the observed ratio set as 10%, followed by multiple hypothesis testing correction. The coloring reflects the significance. See the report for more information.
     + Bar plot and Pie chart showing at most top 50 pairs of lineage changes between two time points along with the change type (Figure C)
  
 ### Contact
 Questions or comments can be directed to Julie Chih-yu Chen chih-yu.chenATphac-aspc.gc.ca
+
