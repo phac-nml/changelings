@@ -1,11 +1,11 @@
 ---
 title: "COVID19_Lineage_assignment_changes_through_time_report"
 author: "Julie Chih-yu Chen"
-date: "Feb 11, 2022"
+date: "April 04, 2022"
 output: html_document
 ---
 
- The script in this markdown is used to generate the Sankey visualization of changes in Pangolin lineage assignment at any point in specificied timepoints, and report top changes in counts and proportions of lineages.
+ The script in this markdown is used to generate the Sankey visualization of changes in Pangolin lineage assignment at any point in specificied timepoints, and report top changes in counts and proportions of lineages. Updated to be compatible with Pangolin v4.0.
  
 
 ```{r setup, include=FALSE}
@@ -44,17 +44,35 @@ linlist<-lapply(pdates,function(pdate){
   
   if(file.exists(file.path(datDir, "lineage_report.csv"))){
     oplearn<-read.csv(file.path(datDir, "lineage_report.csv"),stringsAsFactors =F)
-    vers<-paste(pdate, "pangolin:",oplearn$pangolin_version[1],"pangoLEARN:",oplearn$pangoLEARN_version[1], "pango:",oplearn$pango_version[1])
     
-    ###adding scorpio and constellation versions from Adrian's log file
-    if(file.exists(file.path(datDir,"pango_log.txt"))){
-      verss<-readLines(file.path(datDir, "pango_log.txt"))
-      vers<-paste(vers, verss[grep("constellations",verss)],verss[grep("scorpio",verss)])
+    ## checking pangolin version
+    if("pangoLEARN_version"%in%colnames(oplearn)){## before pangolin v4.0
+      vers<-paste(pdate, "pangolin:",oplearn$pangolin_version[1],
+                  "pangoLEARN:",oplearn$pangoLEARN_version[1],
+                  "pango:",oplearn$pango_version[1])
+      ###adding scorpio and constellation versions from Adrian's log file
+      if(file.exists(file.path(datDir,"pango_log.txt"))){
+        verss<-readLines(file.path(datDir, "pango_log.txt"))
+        vers<-paste(vers, verss[grep("constellations",verss)],verss[grep("scorpio",verss)])
+      }
+      ### remove those that didn't pass qc
+      oplearn<-oplearn[oplearn$status=="passed_qc",c("taxon","lineage")]
+      
+      ### renaming None to Unassigned to match pangolin v4.0
+      oplearn$lineage[oplearn$lineage=="None"]<-"Unassigned"
+      
+    }else{ #pangolin v.40
+      vers<-paste(pdate, "pangolin:",oplearn$pangolin_version[1],
+                  "version:",oplearn$version[1], 
+                  "scorpio:",oplearn$scorpio_version[1],
+                  "constell.:",oplearn$constellation_version[1])
+      ### remove those that didn't pass qc, now with qc_status column
+      oplearn<-oplearn[oplearn$qc_status=="pass",c("taxon","lineage")]
     }
+
     print(vers)
     
-    ### remove those that didn't pass qc
-    oplearn<-oplearn[oplearn$status=="passed_qc",c("taxon","lineage")]
+
   }else{ ## gives a warning 
     warning(paste(file.path(datDir, "lineage_report.csv"), "isn't available."))}
   
@@ -382,7 +400,7 @@ linheirnote<-readLines(gsub(".csv",".txt",linheirfile)) #version info
 ```
 
 ### Examining pairs of lineage changes between any two timepoints
-If there is any change in lineage classification between two timepoints, visualize the counts of lineage change pairs in a barplot and the change states in a pie chart. The change states simply note if the new lineage is a child/grandchild/descendant of the original lineage (child), if the new lineage is a parent of the original lineage (parent), if the new lineage share the same direct parent with the original one (sibling), if one of the classification was "None" (None), and if it's none of the above (other).
+If there is any change in lineage classification between two timepoints, visualize the counts of lineage change pairs in a barplot and the change states in a pie chart. The change states simply note if the new lineage is a child/grandchild/descendant of the original lineage (child), if the new lineage is a parent of the original lineage (parent), if the new lineage share the same direct parent with the original one (sibling), if one of the classification was "Unassigned" (Unassigned), and if it's none of the above (other).
 
 ```{r change pairs and states, echo=FALSE, fig.width=12}
 if(nrow(diffMat)!=0){ ## if there are changes in any pairs of time points
@@ -405,9 +423,9 @@ if(nrow(diffMat)!=0){ ## if there are changes in any pairs of time points
       changeState0=NULL
     }else{
       cp1<-do.call(rbind,strsplit(names(cp0), "_"))
-      ### if the pairs are siblings, or contained None, or "others"
+      ### if the pairs are siblings, or contained Unassigned, or "others"
       changeState0<-apply(cp1,1,function(z){
-        if(sum(z%in%"None")==0){
+        if(sum(z%in%"Unassigned")==0){
           
           ## double check if all classified lineages are in the ancestry look up table!
           if(sum(linheir$lineage==z[1])==0) print(paste("The",z[1],"lineage is not in the ancestry look up table."))
@@ -415,14 +433,14 @@ if(nrow(diffMat)!=0){ ## if there are changes in any pairs of time points
           
           ret=unique(linheir$parent[linheir$lineage==z[1]])==unique(linheir$parent[linheir$lineage==z[2]])
           ret=ifelse(ret,"sibling","other")
-        }else{ret="None"};ret})
+        }else{ret="Unassigned"};ret})
       
       ### if the new lineage is the child or grand child etc.
       changeState0[names(cp0)%in%p2c]="child"
       ### if the new lineage is the parent
       changeState0[names(cp0)%in%c2p]="parent"
     }
-    factor(changeState0, levels=c("child","parent","sibling","other","None"))
+    factor(changeState0, levels=c("child","parent","sibling","other","Unassigned"))
   })
   
   col2use <- c("#1B9E77", "#D95F02", "#7570B3", "#E7298A", "#E6AB02") #, "#66A61E"
