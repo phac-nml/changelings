@@ -1,11 +1,11 @@
 ---
 title: "COVID19_Lineage_assignment_changes_through_time_report"
 author: "Julie Chih-yu Chen"
-date: "April 04, 2022"
+date: "April 05, 2022"
 output: html_document
 ---
 
- The script in this markdown is used to generate the Sankey visualization of changes in Pangolin lineage assignment at any point in specificied timepoints, and report top changes in counts and proportions of lineages. Updated to be compatible with Pangolin v4.0.
+The script in this markdown is used to generate the Sankey visualization of changes in Pangolin lineage assignment at any point in specificied timepoints, and report top changes in counts and proportions of lineages. It is compatible with Pangolin v3.0 and v4.0. The pairs of changes are also saved in an excel spreadsheet for reference.
  
 
 ```{r setup, include=FALSE}
@@ -17,6 +17,7 @@ require(ggplot2)
 require(ggrepel)
 require(dplyr)
 require(grid)
+require(openxlsx)
 ```
 
 
@@ -40,6 +41,9 @@ outname<-paste0(typeselect,"_",tail(pdatesclean,n=1)) ## using the last date/ver
 
 linlist<-lapply(pdates,function(pdate){
   datDir<-file.path(inputDir,pdate)
+  pdateclean=gsub(folderString,"",pdate) #shorten the name to print
+  
+  versVector=NULL #columns: c("RunName","pangolin", "version","scorpio","constellation","pangoLEARN")
   oplearn=NULL
   
   if(file.exists(file.path(datDir, "lineage_report.csv"))){
@@ -47,14 +51,18 @@ linlist<-lapply(pdates,function(pdate){
     
     ## checking pangolin version
     if("pangoLEARN_version"%in%colnames(oplearn)){## before pangolin v4.0
-      vers<-paste(pdate, "pangolin:",oplearn$pangolin_version[1],
-                  "pangoLEARN:",oplearn$pangoLEARN_version[1],
-                  "pango:",oplearn$pango_version[1])
+      versVector<-c(pdateclean,oplearn$pangolin_version[1],
+                    names(tail(sort(table(oplearn$version)),1)), # the non-PANGO label
+                    "","",
+                    oplearn$pangoLEARN_version[1] )
       ###adding scorpio and constellation versions from Adrian's log file
       if(file.exists(file.path(datDir,"pango_log.txt"))){
         verss<-readLines(file.path(datDir, "pango_log.txt"))
-        vers<-paste(vers, verss[grep("constellations",verss)],verss[grep("scorpio",verss)])
+        #vers<-paste(vers, verss[grep("constellations",verss)],verss[grep("scorpio",verss)])
+        versVector[4:5]=c(gsub("scorpio: ","",verss[grep("scorpio",verss)]),
+                          gsub("constellations: ","",verss[grep("constellations",verss)]))
       }
+      
       ### remove those that didn't pass qc
       oplearn<-oplearn[oplearn$status=="passed_qc",c("taxon","lineage")]
       
@@ -62,22 +70,28 @@ linlist<-lapply(pdates,function(pdate){
       oplearn$lineage[oplearn$lineage=="None"]<-"Unassigned"
       
     }else{ #pangolin v.40
-      vers<-paste(pdate, "pangolin:",oplearn$pangolin_version[1],
-                  "version:",oplearn$version[1], 
-                  "scorpio:",oplearn$scorpio_version[1],
-                  "constell.:",oplearn$constellation_version[1])
+      versVector<-c(pdateclean,oplearn$pangolin_version[1], oplearn$version[1],
+                    oplearn$scorpio_version[1],oplearn$constellation_version[1],"" )
       ### remove those that didn't pass qc, now with qc_status column
       oplearn<-oplearn[oplearn$qc_status=="pass",c("taxon","lineage")]
     }
 
-    print(vers)
+    #print(vers)
     
 
   }else{ ## gives a warning 
     warning(paste(file.path(datDir, "lineage_report.csv"), "isn't available."))}
   
-  oplearn
+  list(oplearn, versVector)
 })
+
+### print the version table, v3 and v4 compatible. Just letting entries be empty where unavailable.
+versTable<-do.call(rbind,lapply(linlist,function(y)y[[2]]))
+colnames(versTable)=c("RunName","pangolin", "version","scorpio","constellation","pangoLEARN")
+print(versTable)
+
+### linlist contains the sequence and it's pangolin predicted lineage
+linlist<-lapply(linlist,function(y)y[[1]])
 names(linlist)=pdates
 
 
@@ -213,8 +227,8 @@ if(nrow(diffMat)!=0){ ## if there are changes
   nodeColors=get_distinct_hues(length(levels(uniqOrderLin)))[as.numeric(uniqOrderLin)]
   nodeColorsCmd= paste0("{ link: { colorMode: 'gradient'}, node: { colors: ['",paste(nodeColors,collapse="','"),"']} }")
   
-  ### setting height, with a maximum, adding min of 50 on 2022-03-11
-  hei=max(50,ifelse(nrow(datVis)/1.5*10 > maxSankeyPx, maxSankeyPx, nrow(datVis)/1.5*10))
+  ### setting height, with a maximum maxSankeyPx, adding min of minSankeyPx
+  hei=max(minSankeyPx,min(maxSankeyPx, nrow(datVis)/1.5*10))
   
   ## customized colors
   p3 <- gvisSankey(datVis, from="From", to="To", weight="counts",options=list(sankey=nodeColorsCmd, width=paste0(ncol(dat)*1.6*100,"px"), height=paste0(hei,"px"))) 
@@ -224,7 +238,7 @@ if(nrow(diffMat)!=0){ ## if there are changes
   
   ### saving sankey html for distribution 
   htmlstring <- paste(c(p3$html$header,paste(p3$html$chart,collapse = ""),p3$html$caption,p3$html$footer),collapse = "\n")
-  cat(htmlstring, file=paste0("sankey_",outname,".html"))
+  cat(htmlstring, file=paste0("changeLings_sankey_",outname,".html"))
   
 }else{
   
@@ -349,12 +363,12 @@ if(nrow(diffMat)!=0){ ## if there are changes from any pairs
   
 
     if(sum(cntvsperc$adjp<0.05)>plotTopCnt){
-      suppressWarnings(print(p + geom_text_repel()+ labs(title = colnames(linchangeCnt)[comparei])))
+      suppressWarnings(print(p + geom_text_repel(max.overlaps = Inf)+ labs(title = colnames(linchangeCnt)[comparei])))
       print(paste("Top",plotTopCnt,"significant changes",colnames(linchangeCnt)[comparei]))
       print(head(cntvsperc[order(cntvsperc$adjp),],plotTopCnt))
     }else if(sum(cntvsperc$adjp<0.05)>0){
       tmp<-cntvsperc[order(cntvsperc$adjp),]
-      suppressWarnings(print(p + geom_text_repel()+ labs(title = colnames(linchangeCnt)[comparei])))
+      suppressWarnings(print(p + geom_text_repel(max.overlaps = Inf)+ labs(title = colnames(linchangeCnt)[comparei])))
       print(paste(plotTopCnt,"Significant changes",colnames(linchangeCnt)[comparei]))
       print(tmp[tmp$adjp<0.05,])
     }else{
@@ -370,7 +384,7 @@ if(nrow(diffMat)!=0){ ## if there are changes from any pairs
   #linpercchange[names(head(sort(alllincnt[,ncol(alllincnt)], decreasing=T),10)),]
   
   ### overall distribution of % changes between consecutive runs
-  hist(linpercchange, breaks=30, main="Overall % Changes between consecutive runs", xlab="Percent change",xlim=c(0,100))
+  hist(linpercchange, breaks=30, main="% changes between consecutive runs by lineage", xlab="Percent change",xlim=c(0,100))
   
   ## percentile of changes by lineages
   #quantile(na.omit(as.vector(linpercchange)),probs=c(seq(0,0.8,0.1),seq(0.9,1,0.01)))
@@ -400,7 +414,7 @@ linheirnote<-readLines(gsub(".csv",".txt",linheirfile)) #version info
 ```
 
 ### Examining pairs of lineage changes between any two timepoints
-If there is any change in lineage classification between two timepoints, visualize the counts of lineage change pairs in a barplot and the change states in a pie chart. The change states simply note if the new lineage is a child/grandchild/descendant of the original lineage (child), if the new lineage is a parent of the original lineage (parent), if the new lineage share the same direct parent with the original one (sibling), if one of the classification was "Unassigned" (Unassigned), and if it's none of the above (other).
+If there is any change in lineage classification between two timepoints, visualize the counts of lineage change pairs in a barplot and the change states in a pie chart. The change states simply note if the new lineage is a child/grandchild/descendant of the original lineage (child), if the new lineage is a parent of the original lineage (parent), if the new lineage share the same direct parent with the original one (sibling), if one of the classification was "Unassigned" from pangolin v4 or "None" from pangolin v3 (Unassigned), and if it's none of the above (other).
 
 ```{r change pairs and states, echo=FALSE, fig.width=12}
 if(nrow(diffMat)!=0){ ## if there are changes in any pairs of time points
@@ -445,7 +459,10 @@ if(nrow(diffMat)!=0){ ## if there are changes in any pairs of time points
   
   col2use <- c("#1B9E77", "#D95F02", "#7570B3", "#E7298A", "#E6AB02") #, "#66A61E"
 
-  for(y in 1:length(changePairs)){
+  #saving the excel table
+  pairchangeList<-list(versTable=versTable) #version table
+ 
+  for(y in 1:length(changePairs)){ #for every two consecutive time points
     #Pie chart generation
     #counts of sequences with lineage changes under these categories
     changeStateTable<-sapply(levels(changeState[[y]]),function(z){sum(changePairs[[y]][changeState[[y]]==z],na.rm=T)})# na.rm=T added to deal with missing lineages (that are no longer in the ancestry table)
@@ -470,8 +487,17 @@ if(nrow(diffMat)!=0){ ## if there are changes in any pairs of time points
       
     cpt<-data.frame(as.data.frame(changePairs[[y]]), state=changeState[[y]])
     
+    
+    
     ### Only plot when there are changes
     if(nrow(cpt)>1){
+      #only save an Excel sheet when there are changes, output table
+      cpt12=do.call(rbind,strsplit(as.character(cpt[,1]),"_")) 
+      colnames(cpt12)=c("From","To")
+      pairchangeList<-c(pairchangeList,list(data.frame(cpt12,cpt[,-1])))
+      names(pairchangeList)[length(pairchangeList)]=names(changePairs)[y]
+
+
       if(nrow(cpt)>maxPairBar){
         print(paste("The following plot had to be reduced to top",maxPairBar,"pairs only."))
         cpt<-cpt[order(cpt$Freq,decreasing=T),] ##doesn't work with only one pair    
@@ -483,35 +509,38 @@ if(nrow(diffMat)!=0){ ## if there are changes in any pairs of time points
   scale_fill_manual(values = col2use, breaks = levels(changeState[[y]])) 
      #print(bp)
     
-    vp <- viewport(width = 0.6, height = 0.6, x = 0.75, y = 0.65)
-
-    print(bp);print(pies, vp = vp)
+      vp <- viewport(width = 0.6, height = 0.6, x = 0.75, y = 0.65)
+  
+      print(bp);print(pies, vp = vp)
      
-    }else if (nrow(cpt)==1){ ## no ordering
+    }else if (nrow(cpt)==1){ ## no ordering when there's only one lineage change pair
       cpt=data.frame("Var1"=rownames(cpt),cpt)
       colnames(cpt)=c("Var1","Freq","state")
+      
+      #output table with one row
+      cpt12=do.call(rbind,strsplit(as.character(cpt[,1]),"_")) 
+      colnames(cpt12)=c("From","To")
+      pairchangeList<-c(pairchangeList,list(data.frame(cpt12,cpt[,-1])))
+      names(pairchangeList)[length(pairchangeList)]=names(changePairs)[y]
+
       ## generate the barplot
       bp<-ggplot(data=cpt,aes(x=Var1, y=Freq,fill=state)) + geom_bar(stat="identity")+ theme(axis.text.x = element_text(angle=45, hjust=1)) + ggtitle(paste(sum(changePairs[[y]]),"classification changes from",names(changePairs)[y]))+ylab("# of changes")+xlab("From one lineage to another")+
   scale_fill_manual(values = col2use, breaks = levels(changeState[[y]])) 
-     #print(bp)
-    
-    vp <- viewport(width = 0.6, height = 0.6, x = 0.75, y = 0.65)
+     
+      vp <- viewport(width = 0.6, height = 0.6, x = 0.75, y = 0.65)
+  
+      print(bp);print(pies, vp = vp)
 
-    print(bp);print(pies, vp = vp)
-      
-      
       
     }else{
       print(paste("No changes for",names(changePairs)[y]))
     }
   }  
   
-  ## no longer needed
-  ## print top 10 change pairs or those with changes of > 50 samples
-  #print("Printing top 10 change pairs or those with changes of > 50 samples")
-  #lapply(changePairs,function(y) head(y,max(10,sum(y>50))))
   
-
+  # saving the xlsx file
+  openxlsx::write.xlsx(pairchangeList, file = paste0("changeLings_table_",outname,".xlsx")) 
+  
 }else{
   
   print("No change.")

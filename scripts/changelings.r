@@ -6,7 +6,7 @@
 ### RUN changelings.r on linux for the last n runs. When n is not specified, use 2 as default.
 ### Rscript changelings.r [n]  
 ###
-### Example usage: 
+### Example usage to compare the last 5 runs: 
 ###   cd /yourDirectory/changelings/
 ###   conda activate changelings
 ###   Rscript scripts/changelings.r 5
@@ -31,6 +31,16 @@ require(ggplot2)
 require(ggrepel)
 require(dplyr)
 require(here)
+require(openxlsx)
+
+########
+## Multicore on linux OS for speed: Generally not necessary
+## 4 cores for 40-run comparison uses <4 times more memory and is >2 times faster
+########
+#if(Sys.info()["sysname"] == "Linux"){
+#  require(parallel)
+#  lapply<-function(y,...){mclapply(y,...,mc.cores=4)}
+#}
 
 ########
 ### Set your own input directory, example data is in the data folder
@@ -46,8 +56,9 @@ linheirfile=here("data","lineage-hierarchy.csv")
 ## Acquiring folder names of pangolin results under the specified inputDir
 ## Example folder names start with the string "pangolin_analysis" followed by the _year_month_day
 ########
-timev<-dir(inputDir,pattern="^pangolin_analysis")
-timevclean<-substr(gsub("pangolin_analysis_20","",timev),1,8) ## narrowing down to month_day
+folderString="pangolin_analysis_" ## The folder name pattern for identification, and to be removed for label later on
+timev<-dir(inputDir,pattern=folderString)
+timevclean<-substr(gsub(paste0(folderString,"20"),"",timev),1,8) ## narrowing down to the last two digits of year, month_day
 print(timevclean)
 
 ## should there be two runs on the same day, chose the later one by default
@@ -80,10 +91,11 @@ linFocus <- NULL;linFocusName=""
 #linFocus <- c("AY.74","B.1.617.2","AY.45"); linFocusName=paste0("_",paste(linFocus,collapse="_"))
 
 
-### maximum Sankey pixel in height, let this be
+### maximum Sankey pixel in height
+minSankeyPx=400 ## min 400px, modify if plot is too squished
 maxSankeyPx=5000 ## max 5000px, otherwise it's too long.
 
-print("test")
+
 ########
 ### run the Rmd file, saving both sankey plot and the html report in the output directory
 ### Please note the report is meant for all lineages and not a subset of lineages. When running a lineage subset, the html report file name has the lineages added to it.

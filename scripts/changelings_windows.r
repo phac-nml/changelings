@@ -9,6 +9,7 @@ require(googleVis)
 require(ggplot2)
 require(ggrepel)
 require(dplyr)
+require(openxlsx)
 require(here)
 
 ########
@@ -25,11 +26,11 @@ linheirfile=here("data","lineage-hierarchy.csv")
 ## Acquiring folder names of pangolin results under the specified inputDir
 ## Example folder names start with the string "pangolin_analysis" followed by the _year_month_day
 ########
-timev<-dir(inputDir,pattern="^pangolin_analysis")
-##for 2022 as well
-timevclean<-substr(gsub("pangolin_analysis_20","",timev),1,8) ## narrowing down to month_day
+folderString="pangolin_analysis_" ## The folder name pattern for identification, and to be removed for label later on
+timev<-dir(inputDir,pattern=folderString)
+timevclean<-substr(gsub(paste0(folderString,"20"),"",timev),1,8) ## narrowing down to the last two digits of year, month_day
+print(timevclean)
 
-  
 ## should there be two runs on the same day, chose the later one by default
 repDates<-names(which(table(timevclean)>1))
 if(length(repDates)>0){
@@ -45,7 +46,7 @@ if(length(repDates)>0){
 #selectT<-1:length(timev); typeselect="" # Plot all time points within the inputDir folder, no filter
 #selectT<-sort(c(1,4,6,10,13,15,23)); typeselect="sampled" ## select a sub-sample
 lastn=5 ## select the last n time points
-selectT<-(length(timev)-(lastn-1):length(timev); typeselect=paste0("last",lastn) 
+selectT <- (length(timev)-(lastn-1)):length(timev); typeselect=paste0("last",lastn) 
 
 
 
@@ -66,7 +67,8 @@ linFocus <- NULL;linFocusName=""
 #linFocus <- c("AY.74","B.1.617.2","AY.45"); linFocusName=paste0("_",paste(linFocus,collapse="_"))
 
 
-### maximum Sankey pixel in height, let this be
+### maximum Sankey pixel in height
+minSankeyPx=400 ## min 400px, modify if plot is too squished
 maxSankeyPx=5000 ## max 5000px, otherwise it's too long.
 
 
